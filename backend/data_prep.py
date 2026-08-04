@@ -1,5 +1,6 @@
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+import re
 
 import pandas as pd
 
@@ -9,6 +10,21 @@ DATASET_DIR = BASE_DIR / 'datasets'
 PHISHING_DATASET = DATASET_DIR / 'verified_online.csv'
 LEGITIMATE_DATASET = DATASET_DIR / 'top-1m.csv'
 MERGED_DATASET = DATASET_DIR / 'merged_training_data.csv'
+
+DOMAIN_PATTERN = re.compile(
+    r'^(?=.{1,253}$)'
+    r'([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+'
+    r'[a-zA-Z]{2,63}$'
+)
+IPV4_PATTERN = re.compile(
+    r'^(([01]?\d\d?|2[0-4]\d|25[0-5])\.){3}([01]?\d\d?|2[0-4]\d|25[0-5])$'
+)
+
+
+def _valid_netloc(netloc):
+    if IPV4_PATTERN.match(netloc):
+        return True
+    return bool(DOMAIN_PATTERN.match(netloc))
 
 
 def canonicalize_url(url):
@@ -25,7 +41,7 @@ def canonicalize_url(url):
     path = parsed.path.rstrip('/')
     query = parsed.query
 
-    if not netloc:
+    if not netloc or not _valid_netloc(netloc):
         return None
 
     return urlunsplit((scheme, netloc, path, query, ''))

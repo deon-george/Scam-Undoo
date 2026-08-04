@@ -225,6 +225,4 @@ The Vite dev server will start locally, typically on `http://localhost:5173`.
 - Expand feature extraction with domain age, TLD reputation, and URL token analysis.
 - Add loading states and backend health checks in the frontend.
 
-## License
-
-No license file is currently included in the repository.
+.
