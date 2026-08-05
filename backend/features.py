@@ -28,6 +28,77 @@ FEATURE_NAMES = [
     'suspicious_file_extension',
 ]
 
+FEATURE_META = {
+    'url_length': {
+        'label': 'URL Length',
+        'description': 'Total number of characters in the URL. Longer URLs are more commonly used to disguise phishing links.',
+    },
+    'num_digits': {
+        'label': 'Number of Digits',
+        'description': 'Count of numeric characters in the URL. Digits are often added to imitate brands or random IDs.',
+    },
+    'num_special_chars': {
+        'label': 'Special Characters',
+        'description': 'Count of non-alphanumeric characters. Excessive special characters can obfuscate the real destination.',
+    },
+    'has_ip': {
+        'label': 'IP Address Host',
+        'description': 'Whether the host is a raw IPv4 address instead of a domain name, a common phishing pattern.',
+    },
+    'is_https': {
+        'label': 'Uses HTTPS',
+        'description': 'Whether the URL uses a secure connection. HTTPS alone does not guarantee a site is safe.',
+    },
+    'domain_age_days': {
+        'label': 'Domain Age (Days)',
+        'description': 'Age of the domain in days. Very young domains are far more likely to be used for scams.',
+    },
+    'tld_reputation': {
+        'label': 'TLD Reputation',
+        'description': 'Historical phishing rate of the top-level domain. Higher values indicate a riskier TLD.',
+    },
+    'num_subdomains': {
+        'label': 'Number of Subdomains',
+        'description': 'How many subdomain levels are prepended. Many subdomains can hide the real destination.',
+    },
+    'hostname_length': {
+        'label': 'Hostname Length',
+        'description': 'Length of the hostname. Long hostnames are often used to mimic legitimate brands.',
+    },
+    'hostname_has_hyphen': {
+        'label': 'Hostname Has Hyphen',
+        'description': 'Whether the hostname contains a hyphen, a common trick used to imitate brand names.',
+    },
+    'hostname_entropy': {
+        'label': 'Hostname Entropy',
+        'description': 'Randomness of the hostname characters. High entropy suggests a randomly generated domain.',
+    },
+    'hostname_digit_ratio': {
+        'label': 'Hostname Digit Ratio',
+        'description': 'Proportion of digits in the hostname. Digits in hostnames can signal generated addresses.',
+    },
+    'num_path_tokens': {
+        'label': 'Path Tokens',
+        'description': 'Number of meaningful segments in the URL path. Deep paths are sometimes used to confuse users.',
+    },
+    'longest_path_token_length': {
+        'label': 'Longest Path Token',
+        'description': 'Length of the longest segment in the URL path.',
+    },
+    'suspicious_keyword_count': {
+        'label': 'Suspicious Keywords',
+        'description': 'How many scam-related words (login, verify, secure, prize, etc.) appear in the URL.',
+    },
+    'brand_keyword_count': {
+        'label': 'Brand Keywords',
+        'description': 'How many trusted brand names appear while not being the real domain, a classic impersonation signal.',
+    },
+    'suspicious_file_extension': {
+        'label': 'Suspicious File Extension',
+        'description': 'Whether the URL points to a risky file type such as .exe, .zip, .apk, or .php.',
+    },
+}
+
 IP_PATTERN = re.compile(
     r'(([01]?\d\d?|2[0-4]\d|25[0-5])\.){3}([01]?\d\d?|2[0-4]\d|25[0-5])'
 )

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import pickle
 
 import numpy as np
@@ -71,7 +72,8 @@ def main():
         pickle.dump(model, file_handle)
 
     with open(MODEL_FEATURES_PATH, 'w', encoding='utf-8') as file_handle:
-        file_handle.write('\n'.join(FEATURE_NAMES))
+        json.dump(FEATURE_NAMES, file_handle, indent=2)
+        file_handle.write('\n')
 
     print(f'Merged dataset saved to {MERGED_DATASET}')
     print(f'Training rows: {len(training_frame)}')

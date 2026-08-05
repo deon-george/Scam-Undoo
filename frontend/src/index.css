@@ -384,6 +384,154 @@ body {
   color: var(--text-primary);
 }
 
+/* Explainability */
+.explanation-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.explanation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.explanation-header h4 {
+  font-size: 1.125rem;
+}
+
+.explanation-header svg {
+  color: var(--text-secondary);
+}
+
+.explanation-summary {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
+
+.factor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.factor-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.factor-main {
+  flex: 1;
+}
+
+.factor-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.factor-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.factor-value {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.factor-bar-track {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.factor-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease-out;
+}
+
+.factor-bar.risk-up {
+  background: var(--threat-high);
+}
+
+.factor-bar.risk-down {
+  background: var(--threat-low);
+}
+
+.factor-impact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 76px;
+  justify-content: flex-end;
+}
+
+.factor-impact.risk-up {
+  color: var(--threat-high);
+}
+
+.factor-impact.risk-down {
+  color: var(--threat-low);
+}
+
+.explanation-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.explanation-legend {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.explanation-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.risk-up {
+  background: var(--threat-high);
+}
+
+.legend-dot.risk-down {
+  background: var(--threat-low);
+}
+
+.explanation-method {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 .loader {
   border: 3px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;

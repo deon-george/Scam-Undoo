@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 import os
 from domain_age import DomainAgeService
+from explain import build_explanation
 from features import FEATURE_NAMES, extract_features
 from tld_reputation import TldReputationRepository
 
@@ -63,11 +64,16 @@ def scan_url():
 
         category = categories.get(predicted_class, 'Unknown')
     
+    explanation = build_explanation(
+        model, feature_vector, FEATURE_NAMES, category, confidence
+    )
+
     return jsonify({
         'url': url,
         'category': category,
         'confidence': confidence,
-        'features': feature_dict
+        'features': feature_dict,
+        'explanation': explanation,
     })
 
 if __name__ == '__main__':
