@@ -39,9 +39,204 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #fcfcfc;
+  position: relative;
+  overflow: hidden;
+  background-color: #ffffff;
 }
 
+/* Code Design Background */
+.code-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.code-background img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+/* Ghibli Scene */
+.ghibli-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ghibli-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ghibli-sun-glow {
+  animation: ghibliSunPulse 8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-sun {
+  animation: ghibliSunPulse 8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-cloud-1 { animation: ghibliDrift 60s linear infinite; }
+.ghibli-cloud-2 { animation: ghibliDrift 80s linear infinite; }
+.ghibli-cloud-3 { animation: ghibliDrift 70s linear infinite; }
+.ghibli-cloud-4 { animation: ghibliDrift 95s linear infinite; }
+
+.ghibli-bird {
+  animation: ghibliBird 16s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-drone {
+  animation: ghibliDroneFly 16s linear infinite;
+}
+
+.ghibli-rotor {
+  animation: ghibliRotor 0.45s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-radar {
+  animation: ghibliRadar 9s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-shield {
+  animation: ghibliShieldSwing 5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+
+.ghibli-node {
+  animation: ghibliNodePulse 3s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-glyph {
+  animation: ghibliWind 14s linear infinite;
+}
+
+.ghibli-seed {
+  animation: ghibliSeedFloat 14s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-wind {
+  animation: ghibliWind 11s linear infinite;
+}
+
+.ghibli-wind-2 {
+  animation: ghibliWind 14s linear infinite;
+  animation-delay: -6s;
+}
+
+.ghibli-tree-sway {
+  animation: ghibliTreeSway 7s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.ghibli-spirit {
+  animation: ghibliSpiritBob 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghibli-leaf {
+  animation: ghibliLeaf 11s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes ghibliDrift {
+  from { transform: translateX(-340px); }
+  to { transform: translateX(1560px); }
+}
+
+@keyframes ghibliSunPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes ghibliBird {
+  0% { transform: translate(-160px, 0) scaleY(1); }
+  25% { transform: translate(120px, -14px) scaleY(0.5); }
+  50% { transform: translate(420px, 0) scaleY(1); }
+  75% { transform: translate(740px, 10px) scaleY(0.5); }
+  100% { transform: translate(1080px, 0) scaleY(1); }
+}
+
+@keyframes ghibliDroneFly {
+  0% { transform: translate(-160px, 0); }
+  25% { transform: translate(140px, -18px); }
+  50% { transform: translate(460px, 0); }
+  75% { transform: translate(780px, 12px); }
+  100% { transform: translate(1120px, 0); }
+}
+
+@keyframes ghibliRotor {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ghibliRadar {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ghibliShieldSwing {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes ghibliNodePulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@keyframes ghibliSeedFloat {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.9; }
+  50% { transform: translate(90px, -170px) rotate(14deg); }
+  100% { transform: translate(200px, -380px) rotate(-12deg); opacity: 0.5; }
+}
+
+@keyframes ghibliWind {
+  0% { transform: translateX(-300px); opacity: 0; }
+  15% { opacity: 0.7; }
+  80% { opacity: 0.6; }
+  100% { transform: translateX(1600px); opacity: 0; }
+}
+
+@keyframes ghibliTreeSway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.3deg); }
+}
+
+@keyframes ghibliSpiritBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes ghibliLeaf {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.9; }
+  100% { transform: translate(70px, 170px) rotate(360deg); opacity: 0; }
+}
 
 /* Home Main Content */
 .home-main {
@@ -50,15 +245,19 @@ body {
   justify-content: center;
   align-items: center;
   padding: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .clean-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
   border-radius: 24px;
   padding: 4rem;
   text-align: center;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   max-width: 650px;
   width: 100%;
 }
@@ -137,14 +336,129 @@ body {
   background: var(--accent-hover);
 }
 
+/* Info Section */
+.info-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  padding: 0 4rem 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.info-box {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+
+.info-box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.info-box-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info-box-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.info-box-text {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+}
+
+.info-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.info-list li {
+  position: relative;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.925rem;
+  line-height: 1.6;
+}
+
+.info-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.info-list.steps {
+  counter-reset: step;
+}
+
+.info-list.steps li {
+  counter-increment: step;
+}
+
+.info-list.steps li::before {
+  content: counter(step);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 0.15rem;
+}
+
+.info-list strong {
+  color: var(--text-primary);
+}
+
 /* Footer */
 .footer {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
   padding: 2rem 4rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--bg-primary);
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  position: relative;
+  z-index: 1;
 }
 
 .footer-left .footer-logo {
@@ -559,5 +873,9 @@ body {
   }
   .clean-card {
     padding: 2rem;
+  }
+  .info-section {
+    grid-template-columns: 1fr;
+    padding: 0 1.5rem 3rem;
   }
 }
