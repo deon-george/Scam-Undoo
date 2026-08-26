@@ -114,13 +114,13 @@ const Home = () => {
         <div className="footer-left">
           <div className="footer-logo">
             <ShieldCheck size={24} strokeWidth={2} />
-            <span>PhishGuard</span>
+            <span>Scam Undoo</span>
           </div>
           <p>Stay safe. Browse smart.</p>
         </div>
 
         <div className="footer-right">
-          <p className="copyright-text">&copy; 2026 PhishGuard. All rights reserved.</p>
+          <p className="copyright-text">&copy; 2026 Scam Undoo. All rights reserved.</p>
           <div className="developer-info">
             <p>Meet the developer <strong>Deon George</strong></p>
             <div className="social-links">

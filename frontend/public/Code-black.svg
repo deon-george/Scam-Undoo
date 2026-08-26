@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 1100" width="600" height="1100">
+  <style>
+    .code-text {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      fill: #000000;
+      white-space: pre;
+      font-weight: 500;
+      letter-spacing: -0.3px;
+    }
+  </style>
+  <rect width="100%" height="100%" fill="#ffffff" />
+  <text x="25" y="30" class="code-text">
+    <tspan x="25" dy="0">PROGRAM MANDELBROT_SET;</tspan>
+    <tspan x="25" dy="16">uses vga,crt,mouse;</tspan>
+    <tspan x="25" dy="22">type complex=array[0..1] of real;</tspan>
+    <tspan x="25" dy="16">const Xres=320;</tspan>
+    <tspan x="25" dy="16">      Yres=200;</tspan>
+    <tspan x="25" dy="22">var x,y,Ux,Uy,Cx,Cy,Dx,Dy,Pm,Qm,Pmin,Pmax,Qmin,Qmax:real;</tspan>
+    <tspan x="25" dy="16">    M,r,rm,p,q,a,b:real;</tspan>
+    <tspan x="25" dy="16">    k,kmax:word;</tspan>
+    <tspan x="25" dy="16">    c,z:complex;</tspan>
+    <tspan x="25" dy="16">    color:byte;</tspan>
+    <tspan x="25" dy="22">FUNCTION TrueX(a:real):integer;</tspan>
+    <tspan x="25" dy="16">BEGIN</tspan>
+    <tspan x="25" dy="16">  TrueX:=trunc(Cx*(a-Pmin));</tspan>
+    <tspan x="25" dy="16">END;</tspan>
+    <tspan x="25" dy="22">FUNCTION TrueY(a:real):integer;</tspan>
+    <tspan x="25" dy="16">BEGIN</tspan>
+    <tspan x="25" dy="16">  TrueY:=trunc(Cy*(a-Qmin));</tspan>
+    <tspan x="25" dy="16">END;</tspan>
+    <tspan x="25" dy="22">PROCEDURE Waitkey(key:char);</tspan>
+    <tspan x="25" dy="16">var c:char;</tspan>
+    <tspan x="25" dy="16">begin</tspan>
+    <tspan x="25" dy="16">  repeat</tspan>
+    <tspan x="25" dy="16">    c:=readkey;</tspan>
+    <tspan x="25" dy="16">  until (c=key) or (keypressed);</tspan>
+    <tspan x="25" dy="16">end;</tspan>
+    <tspan x="25" dy="22">BEGIN</tspan>
+    <tspan x="25" dy="16">  Pmin:=-2.25; Qmin:=-1.25;</tspan>
+    <tspan x="25" dy="16">  Pmax:=0.75; Qmax:=1.25;</tspan>
+    <tspan x="25" dy="16">  m:=6; rm:=sqrt(m);</tspan>
+    <tspan x="25" dy="16">  kmax:=255;</tspan>
+    <tspan x="25" dy="22">  REPEAT</tspan>
+    <tspan x="25" dy="16">    Ux:=Pmax-Pmin;</tspan>
+    <tspan x="25" dy="16">    Uy:=Qmax-Qmin;</tspan>
+    <tspan x="25" dy="22">    Dx:=Ux/(Xres-1);</tspan>
+    <tspan x="25" dy="16">    Dy:=Uy/(Yres-1);</tspan>
+    <tspan x="25" dy="22">    Cx:=Xres/Ux;</tspan>
+    <tspan x="25" dy="16">    Cy:=Yres/Uy;</tspan>
+    <tspan x="25" dy="22">    graphmode($13);</tspan>
+    <tspan x="25" dy="22">    defpalettepart(1,63,20,20,30,30,30,63);</tspan>
+    <tspan x="25" dy="16">    defpalettepart(63,127,30,30,63,20,63,40);</tspan>
+    <tspan x="25" dy="16">    defpalettepart(127,191,20,63,40,10,63,63);</tspan>
+    <tspan x="25" dy="16">    defpalettepart(191,255,10,63,63,63,20,63);</tspan>
+    <tspan x="25" dy="16">    putrgb(0,0,0);</tspan>
+    <tspan x="25" dy="22">    IF (0&gt;=Qmax) or (0&lt;=Qmin) THEN</tspan>
+    <tspan x="25" dy="16">    BEGIN</tspan>
+    <tspan x="25" dy="16">      p:=Pmin;</tspan>
+    <tspan x="25" dy="22">      repeat</tspan>
+    <tspan x="25" dy="16">        q:=Qmin;</tspan>
+    <tspan x="25" dy="22">        repeat</tspan>
+    <tspan x="25" dy="16">          k:=1;</tspan>
+    <tspan x="25" dy="16">          z[0]:=p;</tspan>
+    <tspan x="25" dy="16">          z[1]:=q;</tspan>
+    <tspan x="25" dy="16">          repeat</tspan>
+    <tspan x="25" dy="16">            z[0]:=sqr(z[0])-sqr(z[1])+p;</tspan>
+    <tspan x="25" dy="16">            z[1]:=2*z[0]*z[1]+q;</tspan>
+    <tspan x="25" dy="16">            k:=k+1;</tspan>
+    <tspan x="25" dy="16">          until (sqr(z[0])+sqr(z[1])&gt;=m) or (k&gt;=kmax);</tspan>
+    <tspan x="25" dy="16">          if k&lt;kmax then</tspan>
+    <tspan x="25" dy="16">            putpixel(TrueX(p),TrueY(q),color)</tspan>
+    <tspan x="25" dy="16">          else</tspan>
+    <tspan x="25" dy="16">            putpixel(TrueX(p),TrueY(q),0);</tspan>
+    <tspan x="25" dy="16">          q:=q+Dy;</tspan>
+    <tspan x="25" dy="16">        until q&gt;=Qmax;</tspan>
+    <tspan x="25" dy="16">        p:=p+Dx;</tspan>
+    <tspan x="25" dy="16">      until p&gt;=Pmax;</tspan>
+    <tspan x="25" dy="16">    END;</tspan>
+    <tspan x="25" dy="16">END.</tspan>
+  </text>
+</svg>
