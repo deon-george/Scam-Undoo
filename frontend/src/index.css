@@ -794,3 +794,42 @@ body {
     padding: 0 1.5rem 3rem;
   }
 }
+
+/* Top Right Minimalist Header */
+.top-right-header {
+  position: absolute;
+  top: 3rem;
+  right: 4rem;
+  font-size: 1.85rem;
+  font-weight: 900;
+  z-index: 10;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  margin: 0;
+  text-transform: uppercase;
+  
+  /* Minimalist Animation: smooth fade-in and tracking expansion */
+  opacity: 0;
+  animation: minimalist-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes minimalist-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    letter-spacing: 0.25em;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.05em;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-right-header {
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.35rem;
+  }
+}

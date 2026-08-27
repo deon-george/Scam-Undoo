@@ -7,6 +7,7 @@ const Home = () => {
   return (
     <div className="home-layout">
       <CodeBackground />
+      <h3 className="top-right-header"> Scam Undoo?  </h3>
       {/* Main Content Area */}
       <main className="home-main">
         <div className="clean-card">

@@ -165,7 +165,11 @@ const Dashboard = () => {
                 {getThreatIcon(result.category)}
               </div>
               <div className="result-title">
-                <h3>{result.category}</h3>
+                <h3>
+                  {result.category === 'High Threat'
+                    ? getConfidenceMessage(result.confidence)
+                    : result.category}
+                </h3>
                 <p>{result.url}</p>
               </div>
             </div>
@@ -194,10 +198,6 @@ const Dashboard = () => {
             {result.explanation && result.explanation.factors && (
               <ExplanationSection explanation={result.explanation} />
             )}
-
-            <p className="confidence-message">
-              {getConfidenceMessage(result.confidence)}
-            </p>
           </div>
         )}
       </div>
