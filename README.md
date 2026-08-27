@@ -1,6 +1,6 @@
 # Scam Undoo
 
-Scam Undoo is a full-stack URL phishing and scam detection project with a Python backend, an XGBoost-based classification model, and a React/Vite frontend. The app lets a user submit a URL, extracts simple lexical features from it, and returns a threat category with a confidence score.
+Scam Undoo is a full-stack URL phishing and scam detection project with a Python backend, an XGBoost classification model, and a React/Vite frontend. The app lets a user submit a URL, extracts lexical and reputation features, and returns a threat category, confidence score, and feature explanation.
 
 ## Overview
 
@@ -9,17 +9,16 @@ The project is split into two parts:
 - `backend/` provides the Flask API, feature extraction logic, and model training script.
 - `frontend/` provides the React user interface for entering a URL and viewing the scan result.
 
-The current implementation classifies URLs into three labels:
+The current implementation classifies URLs into two labels:
 
 - `Legitimate`
-- `Medium Threat`
 - `High Threat`
 
 ## Features
 
 - Real-time URL scanning from a browser-based dashboard.
 - Flask API with CORS enabled for frontend integration.
-- XGBoost multi-class classifier for URL threat prediction.
+- XGBoost binary classifier for URL threat prediction.
 - Feature-level transparency in the response so users can see what the model evaluated.
 - Clean React/Vite UI with route-based navigation.
 
@@ -29,7 +28,11 @@ The current implementation classifies URLs into three labels:
 Scam Undoo/
 ├── backend/
 │   ├── app.py
+│   ├── data_prep.py
+│   ├── domain_age.py
+│   ├── explain.py
 │   ├── features.py
+│   ├── tld_reputation.py
 │   ├── train_model.py
 │   ├── requirements.txt
 │   └── datasets/
@@ -52,9 +55,9 @@ Scam Undoo/
 
 1. The user enters a URL in the frontend dashboard.
 2. The frontend sends the URL to `POST /api/scan` on the Flask backend.
-3. The backend extracts a small set of numeric features from the URL.
-4. The trained XGBoost model predicts a probability distribution over the 3 classes.
-5. The backend returns the predicted label, confidence, and extracted features.
+3. The backend extracts 17 numeric features from the URL.
+4. The trained XGBoost model predicts the probability of phishing.
+5. The backend returns the predicted label, confidence, extracted features, and SHAP-based explanation.
 
 ## Machine Learning Architecture
 
@@ -64,38 +67,42 @@ The current model is an `XGBClassifier` from XGBoost.
 
 ### Training Approach
 
-`backend/train_model.py` currently generates synthetic training data for three classes and fits the model on that data. It does not yet train on the CSV files in `backend/datasets/`.
+`backend/train_model.py` builds a merged dataset from the phishing URLs in `verified_online.csv` and the legitimate domains in `top-1m.csv`. Duplicate canonical URLs are removed, the legitimate class is downsampled to balance the phishing class, and the model is trained with `objective='binary:logistic'`.
 
 ### Model Configuration
 
 - Estimator: `xgboost.XGBClassifier`
-- Objective: `multi:softprob`
-- Number of classes: `3`
-- Evaluation metric: `mlogloss`
+- Objective: `binary:logistic`
+- Number of classes: `2`
+- Evaluation metric: `logloss`
 
 ### Input Features
 
-The model uses five URL-level features:
+The model uses these 17 features, in the order defined by `FEATURE_NAMES` in `backend/features.py`:
 
 1. `url_length` - total character length of the URL.
 2. `num_digits` - count of numeric characters in the URL.
 3. `num_special_chars` - count of non-alphanumeric characters.
 4. `has_ip` - whether the URL contains an IPv4 address.
 5. `is_https` - whether the URL scheme is HTTPS.
-
-### Class Definitions
-
-The training script maps classes as follows:
-
-- `0` - `Legitimate`
-- `1` - `Medium Threat`
-- `2` - `High Threat`
+6. `domain_age_days` - age of the registered domain in days.
+7. `tld_reputation` - historical phishing rate for the top-level domain.
+8. `num_subdomains` - number of subdomain levels.
+9. `hostname_length` - hostname character length.
+10. `hostname_has_hyphen` - whether the hostname contains a hyphen.
+11. `hostname_entropy` - Shannon entropy of the hostname.
+12. `hostname_digit_ratio` - proportion of hostname characters that are digits.
+13. `num_path_tokens` - number of non-empty path tokens.
+14. `longest_path_token_length` - length of the longest path token.
+15. `suspicious_keyword_count` - count of scam-related keywords in URL text.
+16. `brand_keyword_count` - count of brand names used outside their registered domain.
+17. `suspicious_file_extension` - whether the path contains a configured risky extension.
 
 ### Persistence
 
 After training, the model is serialized to `model.pkl` with `pickle`.
 
-Important: both `train_model.py` and `app.py` use a relative `model.pkl` path. For consistent behavior, run the training and API from the `backend/` directory so the model is saved and loaded from the same place.
+The model and supporting JSON files are resolved relative to the `backend/` directory, so the commands can be run from that directory as shown below.
 
 ## Backend Details
 
@@ -103,7 +110,11 @@ Important: both `train_model.py` and `app.py` use a relative `model.pkl` path. F
 
 - `backend/app.py` - Flask application and API route.
 - `backend/features.py` - URL feature extraction.
-- `backend/train_model.py` - synthetic training data generation and model training.
+- `backend/train_model.py` - dataset preparation and model training.
+- `backend/data_prep.py` - URL canonicalization, deduplication, and label preparation.
+- `backend/domain_age.py` - domain-age lookup and cache handling.
+- `backend/tld_reputation.py` - TLD reputation calculation and lookup.
+- `backend/explain.py` - model feature explanation generation.
 
 ### API Endpoint
 
@@ -129,8 +140,10 @@ Response:
     "num_digits": 0,
     "num_special_chars": 3,
     "has_ip": 0,
-    "is_https": 1
-  }
+    "is_https": 1,
+    "domain_age_days": 3650.0
+  },
+  "explanation": []
 }
 ```
 
@@ -210,18 +223,31 @@ The Vite dev server will start locally, typically on `http://localhost:5173`.
 - lucide-react
 - Vite
 
+## Generated and Optional Files
+
+The following files or directories are generated, local-only, or training-only and can be removed from a runtime-only checkout:
+
+- `backend/venv/`, `frontend/node_modules/`, `backend/__pycache__/`, and `frontend/dist/` - recreate them from the dependency files or build commands.
+- `backend/datasets/merged_training_data.csv` - generated by `data_prep.py`; it is not required by the running API.
+- `backend/datasets/top-1m.csv` and `backend/datasets/verified_online.csv` - required only when retraining the model.
+- `backend/model_features.json` - training metadata; useful for auditing, but the API currently imports `FEATURE_NAMES` directly.
+- `frontend/public/Code-black.png` - appears unused; the UI references `Code-black.svg`.
+
+Keep `backend/model.pkl`, `backend/domain_age_cache.json`, and `backend/tld_reputation.json` for the current runtime. The datasets should be retained when model retraining is part of the workflow.
+
+`frontend/index.html` also contains a leftover `/vite.svg` favicon reference, but that asset is not present. It can be removed or replaced with an existing favicon.
+
 ## Notes and Limitations
 
-- The current model is a proof-of-concept and is trained on synthetic samples, so its predictions are not production-grade.
-- The CSV files in `backend/datasets/` are present in the repository, but the current training script does not read them yet.
+- The model is a proof-of-concept and should be evaluated with a held-out dataset before production use.
+- Domain age may use cached values during training and live WHOIS fallback during API inference.
 - The backend expects `model.pkl` to exist before scanning URLs.
-- The feature set is intentionally small and only uses lexical URL properties, not page content or network reputation signals.
+- The model does not inspect page content. Domain age and TLD reputation are the only non-lexical signals currently used.
 
 ## Possible Next Improvements
 
-- Replace synthetic training data with a real labeled phishing dataset.
 - Add model evaluation metrics and a validation split.
 - Persist model version metadata and training provenance.
-- Expand feature extraction with domain age, TLD reputation, and URL token analysis.
+- Add automated checks that the serialized model feature order matches `FEATURE_NAMES`.
 - Add loading states and backend health checks in the frontend.
 
