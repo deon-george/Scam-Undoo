@@ -342,4 +342,4 @@ Keep `backend/model.pkl` for the current runtime. The dataset should be retained
 - Add automated checks that the serialized model feature order matches `FEATURE_NAMES`.
 - Add loading states and backend health checks in the frontend.
 
-Made with ❤️ by Deon George in association with ASCEND organised by MUFIFA
+Made with ❤️ by Deon George in association with ASCEND organised by MUFIFA 2026
