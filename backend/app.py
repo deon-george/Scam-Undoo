@@ -5,10 +5,8 @@ from flask_cors import CORS
 import pickle
 import numpy as np
 import os
-from domain_age import DomainAgeService
 from explain import build_explanation
 from features import FEATURE_NAMES, extract_features
-from tld_reputation import TldReputationRepository
 
 app = Flask(__name__)
 CORS(app)
@@ -21,8 +19,8 @@ if MODEL_PATH.exists():
     with open(MODEL_PATH, 'rb') as f:
         model = pickle.load(f)
 
-age_service = DomainAgeService(live_fallback=True)
-tld_repo = TldReputationRepository()
+age_service = None  # network features are computed inside extract_features
+tld_repo = None
 
 @app.route('/api/scan', methods=['POST'])
 def scan_url():
@@ -35,10 +33,8 @@ def scan_url():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
-    # Extract features
-    feature_vector, feature_dict = extract_features(
-        url, age_service=age_service, tld_repo=tld_repo
-    )
+    # Extract the 111-feature vector from the URL.
+    feature_vector, feature_dict = extract_features(url, compute_network=True)
 
     if len(feature_vector) != len(FEATURE_NAMES):
         return jsonify({'error': 'Feature mismatch. Please retrain the model.'}), 500

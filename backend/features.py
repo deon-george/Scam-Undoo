@@ -1,225 +1,326 @@
-import math
+"""URL feature extraction reproducing the 111-feature phishing dataset schema.
+
+The trained model is built on ``datasets/dataset_small.csv``, which contains
+111 pre-extracted numeric features plus a binary ``phishing`` label. To serve
+the model from a live URL (the ``/api/scan`` endpoint), we must reproduce those
+same 111 features from a raw URL.
+
+Lexical/structural features (URL, domain, directory, file, params) are computed
+deterministically. Network/reputation features (age, ASN, DNS, TLS, redirects,
+response time) are resolved at scan time via ``net_features`` and default to 0
+on failure. The two external-only signals (Google index lookups, URL-shortener
+status) are not computed and default to 0; they were never derivable from a
+single URL without third-party APIs.
+
+Feature order MUST match the dataset column order exactly.
+"""
+
+from __future__ import annotations
+
 import re
 from urllib.parse import urlparse
 
 import tldextract
 
-from domain_age import DomainAgeService
-from tld_reputation import TldReputationRepository
+from net_features import collect_network_features
+
+
+# The 17 special characters that get per-section character counters. The order
+# here matches the dataset column order (dot, hyphen, underline, slash, ...).
+_SPECIAL_CHARS = [
+    '.', '-', '_', '/', '?', '=', '@', '&', '!', ' ', '~', ',', '+', '*', '#',
+    '$', '%',
+]
+
+_IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+_IPV6_RE = re.compile(r'^[0-9a-fA-F:]+:[0-9a-fA-F:]*$')
+_EMAIL_RE = re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
+
+# Network features are best-effort; these signals require third-party APIs
+# (search-index probing, shortener databases) and are not computed.
+_EXTERNAL_DEFAULT_FEATURES = {
+    'url_google_index': 0,
+    'domain_google_index': 0,
+    'url_shortened': 0,
+}
 
 
 FEATURE_NAMES = [
-    'url_length',
-    'num_digits',
-    'num_special_chars',
-    'has_ip',
-    'is_https',
-    'domain_age_days',
-    'tld_reputation',
-    'num_subdomains',
-    'hostname_length',
-    'hostname_has_hyphen',
-    'hostname_entropy',
-    'hostname_digit_ratio',
-    'num_path_tokens',
-    'longest_path_token_length',
-    'suspicious_keyword_count',
-    'brand_keyword_count',
-    'suspicious_file_extension',
+    'qty_dot_url', 'qty_hyphen_url', 'qty_underline_url', 'qty_slash_url',
+    'qty_questionmark_url', 'qty_equal_url', 'qty_at_url', 'qty_and_url',
+    'qty_exclamation_url', 'qty_space_url', 'qty_tilde_url', 'qty_comma_url',
+    'qty_plus_url', 'qty_asterisk_url', 'qty_hashtag_url', 'qty_dollar_url',
+    'qty_percent_url', 'qty_tld_url', 'length_url',
+    'qty_dot_domain', 'qty_hyphen_domain', 'qty_underline_domain',
+    'qty_slash_domain', 'qty_questionmark_domain', 'qty_equal_domain',
+    'qty_at_domain', 'qty_and_domain', 'qty_exclamation_domain',
+    'qty_space_domain', 'qty_tilde_domain', 'qty_comma_domain',
+    'qty_plus_domain', 'qty_asterisk_domain', 'qty_hashtag_domain',
+    'qty_dollar_domain', 'qty_percent_domain', 'qty_vowels_domain',
+    'domain_length', 'domain_in_ip', 'server_client_domain',
+    'qty_dot_directory', 'qty_hyphen_directory', 'qty_underline_directory',
+    'qty_slash_directory', 'qty_questionmark_directory', 'qty_equal_directory',
+    'qty_at_directory', 'qty_and_directory', 'qty_exclamation_directory',
+    'qty_space_directory', 'qty_tilde_directory', 'qty_comma_directory',
+    'qty_plus_directory', 'qty_asterisk_directory', 'qty_hashtag_directory',
+    'qty_dollar_directory', 'qty_percent_directory', 'directory_length',
+    'qty_dot_file', 'qty_hyphen_file', 'qty_underline_file', 'qty_slash_file',
+    'qty_questionmark_file', 'qty_equal_file', 'qty_at_file', 'qty_and_file',
+    'qty_exclamation_file', 'qty_space_file', 'qty_tilde_file',
+    'qty_comma_file', 'qty_plus_file', 'qty_asterisk_file', 'qty_hashtag_file',
+    'qty_dollar_file', 'qty_percent_file', 'file_length',
+    'qty_dot_params', 'qty_hyphen_params', 'qty_underline_params',
+    'qty_slash_params', 'qty_questionmark_params', 'qty_equal_params',
+    'qty_at_params', 'qty_and_params', 'qty_exclamation_params',
+    'qty_space_params', 'qty_tilde_params', 'qty_comma_params',
+    'qty_plus_params', 'qty_asterisk_params', 'qty_hashtag_params',
+    'qty_dollar_params', 'qty_percent_params', 'params_length',
+    'tld_present_params', 'qty_params', 'email_in_url',
+    'time_response', 'domain_spf', 'asn_ip', 'time_domain_activation',
+    'time_domain_expiration', 'qty_ip_resolved', 'qty_nameservers',
+    'qty_mx_servers', 'ttl_hostname', 'tls_ssl_certificate', 'qty_redirects',
+    'url_google_index', 'domain_google_index', 'url_shortened',
 ]
 
-FEATURE_META = {
-    'url_length': {
-        'label': 'URL Length',
-        'description': 'Total number of characters in the URL. Longer URLs are more commonly used to disguise phishing links.',
-    },
-    'num_digits': {
-        'label': 'Number of Digits',
-        'description': 'Count of numeric characters in the URL. Digits are often added to imitate brands or random IDs.',
-    },
-    'num_special_chars': {
-        'label': 'Special Characters',
-        'description': 'Count of non-alphanumeric characters. Excessive special characters can obfuscate the real destination.',
-    },
-    'has_ip': {
-        'label': 'IP Address Host',
-        'description': 'Whether the host is a raw IPv4 address instead of a domain name, a common phishing pattern.',
-    },
-    'is_https': {
-        'label': 'Uses HTTPS',
-        'description': 'Whether the URL uses a secure connection. HTTPS alone does not guarantee a site is safe.',
-    },
-    'domain_age_days': {
-        'label': 'Domain Age (Days)',
-        'description': 'Age of the domain in days. Very young domains are far more likely to be used for scams.',
-    },
-    'tld_reputation': {
-        'label': 'TLD Reputation',
-        'description': 'Historical phishing rate of the top-level domain. Higher values indicate a riskier TLD.',
-    },
-    'num_subdomains': {
-        'label': 'Number of Subdomains',
-        'description': 'How many subdomain levels are prepended. Many subdomains can hide the real destination.',
-    },
-    'hostname_length': {
-        'label': 'Hostname Length',
-        'description': 'Length of the hostname. Long hostnames are often used to mimic legitimate brands.',
-    },
-    'hostname_has_hyphen': {
-        'label': 'Hostname Has Hyphen',
-        'description': 'Whether the hostname contains a hyphen, a common trick used to imitate brand names.',
-    },
-    'hostname_entropy': {
-        'label': 'Hostname Entropy',
-        'description': 'Randomness of the hostname characters. High entropy suggests a randomly generated domain.',
-    },
-    'hostname_digit_ratio': {
-        'label': 'Hostname Digit Ratio',
-        'description': 'Proportion of digits in the hostname. Digits in hostnames can signal generated addresses.',
-    },
-    'num_path_tokens': {
-        'label': 'Path Tokens',
-        'description': 'Number of meaningful segments in the URL path. Deep paths are sometimes used to confuse users.',
-    },
-    'longest_path_token_length': {
-        'label': 'Longest Path Token',
-        'description': 'Length of the longest segment in the URL path.',
-    },
-    'suspicious_keyword_count': {
-        'label': 'Suspicious Keywords',
-        'description': 'How many scam-related words (login, verify, secure, prize, etc.) appear in the URL.',
-    },
-    'brand_keyword_count': {
-        'label': 'Brand Keywords',
-        'description': 'How many trusted brand names appear while not being the real domain, a classic impersonation signal.',
-    },
-    'suspicious_file_extension': {
-        'label': 'Suspicious File Extension',
-        'description': 'Whether the URL points to a risky file type such as .exe, .zip, .apk, or .php.',
-    },
-}
-
-IP_PATTERN = re.compile(
-    r'(([01]?\d\d?|2[0-4]\d|25[0-5])\.){3}([01]?\d\d?|2[0-4]\d|25[0-5])'
-)
-
-SUSPICIOUS_KEYWORDS = [
-    'login', 'signin', 'sign-in', 'verify', 'verification', 'secure',
-    'security', 'account', 'update', 'confirm', 'unlock', 'alert',
-    'suspend', 'billing', 'invoice', 'payment', 'webscr', 'recover',
-    'password', 'credential', 'wallet', 'bonus', 'gift', 'prize',
-    'winner', 'claim', 'free', 'click', 'track', 'redirect', 'auth',
-    'token', 'refund', 'support', 'customer', 'service', 'official',
-    'webmail', 'logon', 'session', 'case', 'dispatch', 'parcel',
-]
-
-BRAND_KEYWORDS = [
-    'paypal', 'amazon', 'apple', 'google', 'microsoft', 'outlook',
-    'office365', 'facebook', 'instagram', 'whatsapp', 'netflix',
-    'wellsfargo', 'chase', 'bankofamerica', 'citibank', 'hsbc',
-    'barclays', 'allegro', 'ebay', 'linkedin', 'dropbox', 'adobe',
-    'dhl', 'fedex', 'usps', 'payoneer', 'coinbase', 'binance',
-    'blockchain', 'steam', 'icloud', 'yahoo', 'santander', 'ing',
-    'rabobank', 'postbank',
-]
-
-SUSPICIOUS_FILE_EXTENSIONS = [
-    '.exe', '.zip', '.apk', '.scr', '.bat', '.jar', '.rar', '.msi',
-    '.js', '.php',
-]
+# SHAP explanations fall back to a title-cased feature name when absent.
+FEATURE_META = {}
 
 
-def _entropy(text):
-    if not text:
-        return 0.0
-    length = len(text)
-    counts = {}
-    for char in text.lower():
-        counts[char] = counts.get(char, 0) + 1
-    return -sum(
-        (count / length) * math.log2(count / length) for count in counts.values()
-    )
+def _char_counts(text):
+    return {ch: text.count(ch) for ch in _SPECIAL_CHARS}
 
 
-def _extract_registered_domain(parsed):
-    hostname = parsed.hostname or ''
-    extracted = tldextract.extract(hostname)
-    domain = extracted.registered_domain or ''
-    if '.' not in domain and extracted.domain:
-        domain = f'{extracted.domain}.{extracted.suffix}'
-    return domain, (extracted.suffix or '').lower(), extracted.subdomain or ''
+def _is_ip(hostname):
+    return bool(_IPV4_RE.match(hostname) or _IPV6_RE.match(hostname))
 
 
-def extract_features(url, age_service=None, tld_repo=None):
+def _split_path(path):
+    """Return (directory_str, file_str) for a URL path.
+
+    A trailing slash or empty path yields an empty file string. A path with no
+    intermediate directories yields an empty directory string.
     """
-    Extract lexical features from a URL, augmented with network/reputation
-    signals (domain age and TLD reputation) when the corresponding services
-    are provided.
+    segments = path.split('/')
+    # Drop leading empty segment produced by the leading '/'.
+    while segments and segments[0] == '':
+        segments.pop(0)
+    if not segments:
+        return '', ''
+    file_str = segments[-1]
+    directory_str = '/'.join(segments[:-1])
+    return directory_str, file_str
 
-    Returns (feature_vector, feature_dict) where feature_vector follows
-    FEATURE_NAMES ordering.
+
+def extract_features(url, compute_network=True):
+    """Extract the 111-feature vector for a URL.
+
+    Returns ``(feature_vector, feature_dict)`` where ``feature_vector`` follows
+    the ``FEATURE_NAMES`` ordering.
     """
-    parsed = urlparse(url)
-    hostname = parsed.hostname or ''
+    raw = str(url).strip()
+    if '://' not in raw:
+        raw = f'https://{raw}'
+
+    parsed = urlparse(raw)
+    hostname = (parsed.hostname or '').lower()
     path = parsed.path or ''
     query = parsed.query or ''
 
-    registered_domain, tld, subdomain = _extract_registered_domain(parsed)
+    # --- Domain decomposition ------------------------------------------------
+    if _is_ip(hostname):
+        domain_str = hostname
+        tld = ''
+        domain_in_ip = 1
+    else:
+        extracted = tldextract.extract(hostname)
+        domain_str = extracted.registered_domain or hostname
+        tld = (extracted.suffix or '').lower()
+        domain_in_ip = 0
 
-    if age_service is None:
-        age_service = DomainAgeService(live_fallback=False)
-    if tld_repo is None:
-        tld_repo = TldReputationRepository()
+    directory_str, file_str = _split_path(path)
 
-    hostname_tokens = [tok for tok in re.split(r'[._\-]+', hostname) if tok]
-    path_tokens = [tok for tok in re.split(r'[^a-zA-Z0-9]+', path) if tok]
-    longest_path_token = max((len(tok) for tok in path_tokens), default=0)
-
-    hostname_digits = sum(char.isdigit() for char in hostname)
-    hostname_has_hyphen = 1 if '-' in hostname else 0
-
-    combined_tokens = hostname_tokens + path_tokens + [tok for tok in query.split('&') if tok]
-    combined_text = ' '.join(combined_tokens).lower()
-
-    suspicious_keyword_count = sum(
-        1 for keyword in SUSPICIOUS_KEYWORDS if keyword in combined_text
-    )
-
-    brand_text = ' '.join(hostname_tokens + path_tokens + [query.lower()])
-    brand_keyword_count = sum(
-        1
-        for brand in BRAND_KEYWORDS
-        if brand in brand_text
-        and not (
-            registered_domain == brand
-            or registered_domain.startswith(brand + '.')
-        )
-    )
-
-    lower_path = path.lower()
-    suspicious_file_extension = 1 if any(
-        ext in lower_path for ext in SUSPICIOUS_FILE_EXTENSIONS
-    ) else 0
-
-    feature_dict = {
-        'url_length': len(url),
-        'num_digits': sum(char.isdigit() for char in url),
-        'num_special_chars': len(re.findall(r'[^a-zA-Z0-9]', url)),
-        'has_ip': 1 if IP_PATTERN.search(url) else 0,
-        'is_https': 1 if parsed.scheme == 'https' else 0,
-        'domain_age_days': round(age_service.age_days(registered_domain), 2),
-        'tld_reputation': round(tld_repo.score(tld), 4),
-        'num_subdomains': len([part for part in subdomain.split('.') if part]),
-        'hostname_length': len(hostname),
-        'hostname_has_hyphen': hostname_has_hyphen,
-        'hostname_entropy': round(_entropy(hostname), 4),
-        'hostname_digit_ratio': round(hostname_digits / len(hostname), 4) if hostname else 0.0,
-        'num_path_tokens': len(path_tokens),
-        'longest_path_token_length': longest_path_token,
-        'suspicious_keyword_count': suspicious_keyword_count,
-        'brand_keyword_count': brand_keyword_count,
-        'suspicious_file_extension': suspicious_file_extension,
+    # --- URL section ---------------------------------------------------------
+    url_counts = _char_counts(raw)
+    features = {
+        'qty_dot_url': url_counts['.'],
+        'qty_hyphen_url': url_counts['-'],
+        'qty_underline_url': url_counts['_'],
+        'qty_slash_url': url_counts['/'],
+        'qty_questionmark_url': url_counts['?'],
+        'qty_equal_url': url_counts['='],
+        'qty_at_url': url_counts['@'],
+        'qty_and_url': url_counts['&'],
+        'qty_exclamation_url': url_counts['!'],
+        'qty_space_url': url_counts[' '],
+        'qty_tilde_url': url_counts['~'],
+        'qty_comma_url': url_counts[','],
+        'qty_plus_url': url_counts['+'],
+        'qty_asterisk_url': url_counts['*'],
+        'qty_hashtag_url': url_counts['#'],
+        'qty_dollar_url': url_counts['$'],
+        'qty_percent_url': url_counts['%'],
+        'qty_tld_url': len(tld),
+        'length_url': len(raw),
     }
 
-    feature_vector = [feature_dict[name] for name in FEATURE_NAMES]
-    return feature_vector, feature_dict
+    # --- Domain section ------------------------------------------------------
+    domain_counts = _char_counts(domain_str)
+    vowels = sum(1 for ch in domain_str if ch in 'aeiouAEIOU')
+    features.update({
+        'qty_dot_domain': domain_counts['.'],
+        'qty_hyphen_domain': domain_counts['-'],
+        'qty_underline_domain': domain_counts['_'],
+        'qty_slash_domain': domain_counts['/'],
+        'qty_questionmark_domain': domain_counts['?'],
+        'qty_equal_domain': domain_counts['='],
+        'qty_at_domain': domain_counts['@'],
+        'qty_and_domain': domain_counts['&'],
+        'qty_exclamation_domain': domain_counts['!'],
+        'qty_space_domain': domain_counts[' '],
+        'qty_tilde_domain': domain_counts['~'],
+        'qty_comma_domain': domain_counts[','],
+        'qty_plus_domain': domain_counts['+'],
+        'qty_asterisk_domain': domain_counts['*'],
+        'qty_hashtag_domain': domain_counts['#'],
+        'qty_dollar_domain': domain_counts['$'],
+        'qty_percent_domain': domain_counts['%'],
+        'qty_vowels_domain': vowels,
+        'domain_length': len(domain_str),
+        'domain_in_ip': domain_in_ip,
+        'server_client_domain': (
+            1 if ('server' in domain_str or 'client' in domain_str) else 0
+        ),
+    })
+
+    # --- Directory section ---------------------------------------------------
+    if directory_str:
+        dir_counts = _char_counts(directory_str)
+        features.update({
+            'qty_dot_directory': dir_counts['.'],
+            'qty_hyphen_directory': dir_counts['-'],
+            'qty_underline_directory': dir_counts['_'],
+            'qty_slash_directory': dir_counts['/'],
+            'qty_questionmark_directory': dir_counts['?'],
+            'qty_equal_directory': dir_counts['='],
+            'qty_at_directory': dir_counts['@'],
+            'qty_and_directory': dir_counts['&'],
+            'qty_exclamation_directory': dir_counts['!'],
+            'qty_space_directory': dir_counts[' '],
+            'qty_tilde_directory': dir_counts['~'],
+            'qty_comma_directory': dir_counts[','],
+            'qty_plus_directory': dir_counts['+'],
+            'qty_asterisk_directory': dir_counts['*'],
+            'qty_hashtag_directory': dir_counts['#'],
+            'qty_dollar_directory': dir_counts['$'],
+            'qty_percent_directory': dir_counts['%'],
+            'directory_length': len(directory_str),
+        })
+    else:
+        for key in (
+            'qty_dot_directory', 'qty_hyphen_directory', 'qty_underline_directory',
+            'qty_slash_directory', 'qty_questionmark_directory', 'qty_equal_directory',
+            'qty_at_directory', 'qty_and_directory', 'qty_exclamation_directory',
+            'qty_space_directory', 'qty_tilde_directory', 'qty_comma_directory',
+            'qty_plus_directory', 'qty_asterisk_directory', 'qty_hashtag_directory',
+            'qty_dollar_directory', 'qty_percent_directory', 'directory_length',
+        ):
+            features[key] = -1
+
+    # --- File section --------------------------------------------------------
+    if file_str:
+        file_counts = _char_counts(file_str)
+        features.update({
+            'qty_dot_file': file_counts['.'],
+            'qty_hyphen_file': file_counts['-'],
+            'qty_underline_file': file_counts['_'],
+            'qty_slash_file': file_counts['/'],
+            'qty_questionmark_file': file_counts['?'],
+            'qty_equal_file': file_counts['='],
+            'qty_at_file': file_counts['@'],
+            'qty_and_file': file_counts['&'],
+            'qty_exclamation_file': file_counts['!'],
+            'qty_space_file': file_counts[' '],
+            'qty_tilde_file': file_counts['~'],
+            'qty_comma_file': file_counts[','],
+            'qty_plus_file': file_counts['+'],
+            'qty_asterisk_file': file_counts['*'],
+            'qty_hashtag_file': file_counts['#'],
+            'qty_dollar_file': file_counts['$'],
+            'qty_percent_file': file_counts['%'],
+            'file_length': len(file_str),
+        })
+    else:
+        for key in (
+            'qty_dot_file', 'qty_hyphen_file', 'qty_underline_file', 'qty_slash_file',
+            'qty_questionmark_file', 'qty_equal_file', 'qty_at_file', 'qty_and_file',
+            'qty_exclamation_file', 'qty_space_file', 'qty_tilde_file',
+            'qty_comma_file', 'qty_plus_file', 'qty_asterisk_file', 'qty_hashtag_file',
+            'qty_dollar_file', 'qty_percent_file', 'file_length',
+        ):
+            features[key] = -1
+
+    # --- Params section ------------------------------------------------------
+    if query:
+        param_counts = _char_counts(query)
+        features.update({
+            'qty_dot_params': param_counts['.'],
+            'qty_hyphen_params': param_counts['-'],
+            'qty_underline_params': param_counts['_'],
+            'qty_slash_params': param_counts['/'],
+            'qty_questionmark_params': param_counts['?'],
+            'qty_equal_params': param_counts['='],
+            'qty_at_params': param_counts['@'],
+            'qty_and_params': param_counts['&'],
+            'qty_exclamation_params': param_counts['!'],
+            'qty_space_params': param_counts[' '],
+            'qty_tilde_params': param_counts['~'],
+            'qty_comma_params': param_counts[','],
+            'qty_plus_params': param_counts['+'],
+            'qty_asterisk_params': param_counts['*'],
+            'qty_hashtag_params': param_counts['#'],
+            'qty_dollar_params': param_counts['$'],
+            'qty_percent_params': param_counts['%'],
+            'params_length': len(query),
+            'tld_present_params': (
+                1 if re.search(r'[A-Za-z0-9.-]+\.[A-Za-z]{2,24}', query) else 0
+            ),
+            'qty_params': query.count('&') + 1,
+        })
+    else:
+        for key in (
+            'qty_dot_params', 'qty_hyphen_params', 'qty_underline_params',
+            'qty_slash_params', 'qty_questionmark_params', 'qty_equal_params',
+            'qty_at_params', 'qty_and_params', 'qty_exclamation_params',
+            'qty_space_params', 'qty_tilde_params', 'qty_comma_params',
+            'qty_plus_params', 'qty_asterisk_params', 'qty_hashtag_params',
+            'qty_dollar_params', 'qty_percent_params', 'params_length',
+            'tld_present_params', 'qty_params',
+        ):
+            features[key] = -1
+
+    # --- Email in URL --------------------------------------------------------
+    features['email_in_url'] = 1 if _EMAIL_RE.search(raw) else 0
+
+    # --- Network / reputation features --------------------------------------
+    if compute_network:
+        features.update(collect_network_features(raw))
+    else:
+        features.update({
+            'time_response': 0.0,
+            'domain_spf': 0,
+            'asn_ip': 0,
+            'time_domain_activation': 0,
+            'time_domain_expiration': 0,
+            'qty_ip_resolved': 0,
+            'qty_nameservers': 0,
+            'qty_mx_servers': 0,
+            'ttl_hostname': 0,
+            'tls_ssl_certificate': 0,
+            'qty_redirects': 0,
+        })
+
+    # --- External-only signals (not derivable from a single URL) ------------
+    features.update(_EXTERNAL_DEFAULT_FEATURES)
+
+    feature_vector = [features[name] for name in FEATURE_NAMES]
+    return feature_vector, features

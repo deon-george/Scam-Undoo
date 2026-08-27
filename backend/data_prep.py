@@ -1,91 +1,57 @@
+"""Dataset loading and reference split for the pre-extracted phishing dataset.
+
+The current dataset (``datasets/dataset_small.csv``) ships fully extracted
+features: 111 numeric columns plus a binary ``phishing`` label (0 = legitimate,
+1 = phishing). Training no longer canonicalizes raw URLs; it consumes the
+pre-extracted columns directly.
+
+Live inference (``features.py``) reproduces the same 111 features from a URL so
+the trained model can be served through the API.
+"""
+
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
-import re
 
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DATASET_DIR = BASE_DIR / 'datasets'
-PHISHING_DATASET = DATASET_DIR / 'verified_online.csv'
-LEGITIMATE_DATASET = DATASET_DIR / 'top-1m.csv'
-MERGED_DATASET = DATASET_DIR / 'merged_training_data.csv'
-
-DOMAIN_PATTERN = re.compile(
-    r'^(?=.{1,253}$)'
-    r'([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+'
-    r'[a-zA-Z]{2,63}$'
-)
-IPV4_PATTERN = re.compile(
-    r'^(([01]?\d\d?|2[0-4]\d|25[0-5])\.){3}([01]?\d\d?|2[0-4]\d|25[0-5])$'
-)
+DATASET = DATASET_DIR / 'dataset_small.csv'
+LABEL_COLUMN = 'phishing'
 
 
-def _valid_netloc(netloc):
-    if IPV4_PATTERN.match(netloc):
-        return True
-    return bool(DOMAIN_PATTERN.match(netloc))
+def load_raw_dataset(path=DATASET):
+    """Read the full pre-extracted dataset.
+
+    Returns a DataFrame with all 111 feature columns plus the ``phishing``
+    label column.
+    """
+    frame = pd.read_csv(path)
+    if LABEL_COLUMN not in frame.columns:
+        raise ValueError(
+            f"Dataset {path} is missing the required '{LABEL_COLUMN}' label column."
+        )
+    return frame
 
 
-def canonicalize_url(url):
-    value = str(url).strip()
-    if not value:
-        return None
-
-    if '://' not in value:
-        value = f'https://{value}'
-
-    parsed = urlsplit(value)
-    scheme = parsed.scheme.lower() or 'https'
-    netloc = parsed.netloc.lower()
-    path = parsed.path.rstrip('/')
-    query = parsed.query
-
-    if not netloc or not _valid_netloc(netloc):
-        return None
-
-    return urlunsplit((scheme, netloc, path, query, ''))
+def feature_columns(frame):
+    """Return the sorted list of input feature column names (excluding label)."""
+    return [col for col in frame.columns if col != LABEL_COLUMN]
 
 
-def load_raw_url_sources():
-    phishing_frame = pd.read_csv(PHISHING_DATASET, usecols=['url']).copy()
-    phishing_frame['url'] = phishing_frame['url'].astype(str).str.strip()
-    phishing_frame['label'] = 1
-    phishing_frame['source'] = 'phishing'
+def get_reference_split(path=DATASET, test_size=0.2, random_state=42):
+    """Stratified 80/20 split of the dataset for reproducible evaluation.
 
-    legitimate_frame = pd.read_csv(
-        LEGITIMATE_DATASET,
-        header=None,
-        names=['rank', 'domain'],
-        usecols=['rank', 'domain'],
-    ).copy()
-    legitimate_frame['url'] = 'https://' + legitimate_frame['domain'].astype(str).str.strip()
-    legitimate_frame['label'] = 0
-    legitimate_frame['source'] = 'legitimate'
-    legitimate_frame = legitimate_frame[['url', 'label', 'source']]
-
-    return phishing_frame[['url', 'label', 'source']], legitimate_frame
-
-
-def build_merged_dataset(save_to_disk=True):
-    phishing_frame, legitimate_frame = load_raw_url_sources()
-    merged_frame = pd.concat([phishing_frame, legitimate_frame], ignore_index=True)
-    merged_frame['canonical_url'] = merged_frame['url'].map(canonicalize_url)
-    merged_frame = merged_frame.dropna(subset=['canonical_url']).copy()
-
-    merged_frame['source_priority'] = merged_frame['label'].map({1: 0, 0: 1})
-    merged_frame = merged_frame.sort_values(
-        by=['canonical_url', 'source_priority'],
-        ascending=[True, True],
-        kind='mergesort',
+    Returns ``(train_frame, eval_frame)`` where each frame contains all
+    original columns (features + label). The split is stratified on the label
+    so both folds keep the original class balance.
+    """
+    frame = load_raw_dataset(path)
+    train_frame, eval_frame = train_test_split(
+        frame,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=frame[LABEL_COLUMN],
     )
-
-    merged_frame = merged_frame.drop_duplicates(subset=['canonical_url'], keep='first')
-    merged_frame = merged_frame.drop(columns=['source_priority'])
-    merged_frame = merged_frame[['url', 'canonical_url', 'label', 'source']].reset_index(drop=True)
-
-    if save_to_disk:
-        MERGED_DATASET.parent.mkdir(parents=True, exist_ok=True)
-        merged_frame.to_csv(MERGED_DATASET, index=False)
-
-    return merged_frame
+    return train_frame.reset_index(drop=True), eval_frame.reset_index(drop=True)
