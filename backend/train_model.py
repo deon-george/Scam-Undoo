@@ -9,7 +9,6 @@ real, out-of-sample performance (not just in-sample fit).
 from pathlib import Path
 
 import json
-import pickle
 
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ from features import FEATURE_NAMES
 
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / 'model.pkl'
+MODEL_PATH = BASE_DIR / 'model.json'
 MODEL_FEATURES_PATH = BASE_DIR / 'model_features.json'
 
 
@@ -64,8 +63,7 @@ def main():
     print('Eval ROC-AUC:         ', f'{auc:.4f}')
     print(classification_report(y_eval, predictions, digits=4))
 
-    with open(MODEL_PATH, 'wb') as file_handle:
-        pickle.dump(model, file_handle)
+    model.save_model(MODEL_PATH)
 
     with open(MODEL_FEATURES_PATH, 'w', encoding='utf-8') as file_handle:
         json.dump(FEATURE_NAMES, file_handle, indent=2)

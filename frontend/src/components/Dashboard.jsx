@@ -113,6 +113,16 @@ const Dashboard = () => {
     }
   };
 
+  const getConfidenceMessage = (confidence) => {
+    if (confidence < 0.9) {
+      return 'You are safe to browse but be cautious.';
+    }
+    if (confidence <= 0.95) {
+      return 'This site may have serious threats it is recommended not to visit it';
+    }
+    return "You are at very high risk, don't visit the site.";
+  };
+
   return (
     <div className="dashboard-container">
       <Link to="/" style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
@@ -184,6 +194,10 @@ const Dashboard = () => {
             {result.explanation && result.explanation.factors && (
               <ExplanationSection explanation={result.explanation} />
             )}
+
+            <p className="confidence-message">
+              {getConfidenceMessage(result.confidence)}
+            </p>
           </div>
         )}
       </div>

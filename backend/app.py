@@ -2,22 +2,22 @@ from pathlib import Path
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pickle
 import numpy as np
 import os
+import xgboost as xgb
 from explain import build_explanation
 from features import FEATURE_NAMES, extract_features
 
 app = Flask(__name__)
 CORS(app)
 
-MODEL_PATH = Path(__file__).resolve().parent / 'model.pkl'
+MODEL_PATH = Path(__file__).resolve().parent / 'model.json'
 
 # Load model if exists, otherwise it will crash on scan but we assume train_model.py is run first
 model = None
 if MODEL_PATH.exists():
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
+    model = xgb.XGBClassifier()
+    model.load_model(MODEL_PATH)
 
 age_service = None  # network features are computed inside extract_features
 tld_repo = None
