@@ -22,13 +22,13 @@ const Home = () => {
             </div>
           </div>
 
-          <h1>URL Phishing<br/>Detection System</h1>
+          <h1>URL Phishing Detection System</h1>
           
           <div className="separator"></div>
 
           <p>
-            Detect phishing URLs in real-time using advanced<br/>
-            machine learning models. Stay safe while browsing<br/>
+            Detect phishing URLs in real-time using advanced
+            machine learning models. Stay safe while browsing
             and protect yourself from online threats.
           </p>
 

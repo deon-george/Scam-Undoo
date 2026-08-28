@@ -126,7 +126,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <Link to="/" style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
+      <Link to="/" className="back-link">
         <ArrowLeft size={20} /> Back to Home
       </Link>
       
